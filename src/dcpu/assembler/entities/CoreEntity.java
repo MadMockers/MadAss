@@ -27,5 +27,10 @@ public class CoreEntity extends Entity
 	{
 		return m_iPosition;
 	}
+	
+	public String getLine()
+	{
+		return m_sRawLine;
+	}
 
 }

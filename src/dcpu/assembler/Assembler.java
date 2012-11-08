@@ -9,6 +9,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -35,7 +36,8 @@ public class Assembler
 	private ArrayList<CoreEntity> m_vEntities = new ArrayList<CoreEntity>();
 	
 	private HashMap<String, Label> m_vUnknownLabels = new HashMap<String, Label>();
-	private HashMap<String, Label> m_vLabels = new HashMap<String, Label>();
+	private HashMap<String, Label> m_vLabelsByName = new HashMap<String, Label>();
+	private ArrayList<Label> m_vLabels = new ArrayList<Label>();
 	
 	private Label m_LastLabel;
 	
@@ -53,7 +55,7 @@ public class Assembler
 	public void assemble()
 	{
 		firstPass();
-		//optimizeLabels();
+		optimizeLabels();
 		secondPass();
 	}
 	
@@ -168,11 +170,15 @@ public class Assembler
 							{
 								l.setInformation(state.m_iLineNum, state.m_sRawLine, state.m_iProgramCounter);
 							}
+							
 							m_vEntities.add(l);
-							m_vLabels.put(l.getName().toLowerCase(), l);
+							m_vLabels.add(l);
 							
 							if(!local)
+							{
 								m_LastLabel = l;
+								m_vLabelsByName.put(l.getName().toLowerCase(), l);
+							}
 							
 							continue;
 						}
@@ -233,7 +239,7 @@ public class Assembler
 		do
 		{
 			toOptimize = new ArrayList<Label>();
-			for(Label l : m_vLabels.values())
+			for(Label l : m_vLabels)
 			{
 				if(!l.isOptimized() && l.getValue() < 31)
 				{
@@ -252,8 +258,12 @@ public class Assembler
 				if(uses.length == 0)
 					continue;
 				
-				for(Label l : m_vLabels.values())
+				for(Label l : m_vLabels)
 				{
+					if(l.getName().equals("gpf_handler"))
+					{
+						int a = 0;
+					}
 					int offset = 0;
 
 					int lastUseIdx = 0;
@@ -262,6 +272,9 @@ public class Assembler
 					
 					for(int i = 0;i < uses.length;i++)
 					{
+						if(!(uses[i] instanceof LiteralArgument) || !uses[i].isFirst())
+							continue;
+						
 						int use = uses[i].getParent().getPosition();
 						
 						if(use < l.getValue())
@@ -304,12 +317,14 @@ public class Assembler
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		DataOutputStream dos = new DataOutputStream(baos);
 		
+		int pc = 0;
 		for(CoreEntity e : m_vEntities)
 		{
+//			System.out.println(pc + ": " + e.getLine());
 			if(e instanceof OutputEntity)
 			{
 				int[] code = ((OutputEntity) e).getData();
-				
+				pc += code.length;
 				try
 				{
 					for(int c : code)
@@ -417,7 +432,7 @@ public class Assembler
 			if(isLocal && m_LastLabel == null)
 				throw new IllegalStateException("Attempted to reference a local label with no context!");
 			
-			Label l = isLocal ? m_LastLabel.getChild(in) : m_vLabels.get(in);
+			Label l = isLocal ? m_LastLabel.getChild(in) : m_vLabelsByName.get(in);
 			if(l == null)
 			{
 				l = m_vUnknownLabels.get(in);
@@ -564,26 +579,65 @@ public class Assembler
 		{
 			DataOutputStream dos = new DataOutputStream(new FileOutputStream(file));
 			
-			dos.writeInt(m_vLabels.size());
-			for(Label l : m_vLabels.values())
+			HashMap<Integer, ArrayList<Integer>> linesByPC = new HashMap<Integer, ArrayList<Integer>>();
+			
+			{
+				int pc = 0;
+				for(CoreEntity e : m_vEntities)
+				{
+					ArrayList<Integer> lines = linesByPC.get(pc);
+					
+					if(lines == null)
+					{
+						lines = new ArrayList<Integer>();
+						linesByPC.put(pc, lines);
+					}
+					
+					if(e instanceof OutputEntity)
+						pc += ((OutputEntity) e).getData().length;
+					
+					lines.add(e.getLineNumber());
+				}
+			}
+			
+//			{
+//				HashMap<Integer, Label> labels = new HashMap<Integer, Label>();
+//				for(Label l : m_vLabelsByName.values())
+//					labels.put(l.getValue(), l);
+//				Integer[] pcs = labels.keySet().toArray(new Integer[0]);
+//				Arrays.sort(pcs);
+//				for(int pc : pcs)
+//				{
+//					Label l = labels.get(pc);
+//					if(linesByPC.containsKey(pc))
+//					{
+//						ArrayList<Integer> lines = linesByPC.get(pc);
+//						
+//						boolean out = false;
+//						for(int lineNum : lines)
+//						{
+//							String line = m_vRawLines.get(lineNum).trim();
+//							
+//							if(line.length() == 0)
+//								continue;
+//							
+//							if(line.trim().charAt(0) == ':')
+//							{
+//								out = true;
+//								System.out.println(String.format("%d\t%64s\t%s", pc, l.getName(), line));
+//							}
+//						}
+//						if(!out)
+//							System.out.println("LABEL " + l.getName() + ": Could not find!");
+//					}
+//				}
+//			}
+			
+			dos.writeInt(m_vLabelsByName.size());
+			for(Label l : m_vLabelsByName.values())
 			{
 				dos.writeUTF(l.getName());
 				dos.writeInt(l.getValue());
-			}
-			
-			HashMap<Integer, ArrayList<Integer>> linesByPC = new HashMap<Integer, ArrayList<Integer>>();
-			
-			for(CoreEntity e : m_vEntities)
-			{
-				ArrayList<Integer> lines = linesByPC.get(e.getPosition());
-				
-				if(lines == null)
-				{
-					lines = new ArrayList<Integer>();
-					linesByPC.put(e.getPosition(), lines);
-				}
-				
-				lines.add(e.getLineNumber());
 			}
 			
 			dos.writeInt(linesByPC.size());

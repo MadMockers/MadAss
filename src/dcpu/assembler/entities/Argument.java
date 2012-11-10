@@ -24,6 +24,11 @@ public class Argument extends Entity
 		m_iCode = code;
 	}
 	
+	public boolean isFirst()
+	{
+		return m_bFirst;
+	}
+	
 	public void setParent(Operation p)
 	{
 		m_Parent = p;

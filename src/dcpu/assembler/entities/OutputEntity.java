@@ -11,5 +11,6 @@ public abstract class OutputEntity extends CoreEntity
 	}
 	
 	abstract public int[] getData();
+	abstract public int getDataLength();
 
 }

@@ -18,5 +18,10 @@ public class Data extends OutputEntity
 	{
 		return m_aData;
 	}
+	
+	public int getDataLength()
+	{
+		return m_aData.length;
+	}
 
 }

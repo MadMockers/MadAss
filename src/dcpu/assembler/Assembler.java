@@ -24,6 +24,7 @@ import dcpu.assembler.entities.LiteralArgument;
 import dcpu.assembler.entities.Operation;
 import dcpu.assembler.entities.OutputEntity;
 import dcpu.assembler.entities.RawLiteral;
+import dcpu.assembler.evaluate.Evaluator;
 
 public class Assembler
 {
@@ -40,7 +41,7 @@ public class Assembler
 	private ArrayList<Label> m_vLabels = new ArrayList<Label>();
 	
 	private Label m_LastLabel;
-	
+		
 	public Assembler(String inFile, String outFile)
 	{
 		m_fileInput = new File(inFile);
@@ -89,12 +90,12 @@ public class Assembler
 					String tLine = line.toLowerCase();
 					if(tLine.startsWith("push"))
 					{
-						line = "SET " + line;
+						line = "set " + line;
 					}
 					else if(tLine.startsWith("pop"))
 					{
 						String[] split = line.split(" ");
-						line = "SET " + split[1] + " " + split[0];
+						line = "set " + split[1] + " " + split[0];
 					}
 					if(tLine.equals("ret"))
 						line = "set pc, pop";
@@ -106,7 +107,7 @@ public class Assembler
 				
 				String ent = split[0].toLowerCase();
 				
-	
+				//System.out.println("Parsing ent: \"" + ent + "\"");
 				if(state.m_bParsing)
 				{
 					// operations
@@ -187,7 +188,7 @@ public class Assembler
 					
 				// directive
 				{
-					if(ent.charAt(0) == '.')
+					if(ent.charAt(0) == '.' && ent.charAt(ent.length() - 1) != ':')
 					{
 						ent = ent.substring(1);
 						
@@ -198,7 +199,8 @@ public class Assembler
 							throw new IllegalStateException("Directive '." + ent + "' doesn't exist!");
 						}
 						
-						String params = line.substring(line.indexOf(' ') + 1);
+						String[] params = new String[split.length - 1];
+						System.arraycopy(split, 1, params, 0, params.length);
 						
 						Directive dir = new Directive(this, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, dh, ent, params);
 						m_vEntities.add(dir);
@@ -211,13 +213,19 @@ public class Assembler
 							{
 								if(e instanceof OutputEntity)
 								{
-									state.m_iProgramCounter += ((OutputEntity) e).getData().length;
+									state.m_iProgramCounter += ((OutputEntity) e).getDataLength();
 								}
 								m_vEntities.add(e);
 							}
 						}
 						continue;
 					}
+				}
+				
+				if(!state.m_bParsing)
+				{
+					m_vEntities.add(new CoreEntity(this, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine));
+					continue;
 				}
 				
 				throw new IllegalStateException("I don't recognize this!");
@@ -233,8 +241,6 @@ public class Assembler
 	public void optimizeLabels()
 	{
 		ArrayList<Label> toOptimize = null;
-		
-		int count = 0;
 		
 		do
 		{
@@ -253,17 +259,11 @@ public class Assembler
 				
 				Argument[] uses = opt.getReferences();
 				
-				count += uses.length;
-				
 				if(uses.length == 0)
 					continue;
 				
 				for(Label l : m_vLabels)
 				{
-					if(l.getName().equals("gpf_handler"))
-					{
-						int a = 0;
-					}
 					int offset = 0;
 
 					int lastUseIdx = 0;
@@ -308,8 +308,6 @@ public class Assembler
 			}
 		}
 		while(toOptimize.size() != 0);
-		
-		System.out.println("Optimization used " + count + " less words!");
 	}
 	
 	private void secondPass()
@@ -320,11 +318,17 @@ public class Assembler
 		int pc = 0;
 		for(CoreEntity e : m_vEntities)
 		{
-//			System.out.println(pc + ": " + e.getLine());
 			if(e instanceof OutputEntity)
 			{
-				int[] code = ((OutputEntity) e).getData();
+				OutputEntity oe = (OutputEntity) e;
+				int tmp = oe.getDataLength();
+				int[] code = oe.getData();
 				pc += code.length;
+				if(code.length != oe.getDataLength() || code.length != tmp)
+				{
+					System.out.println("## WARNING: OutputEntity " + e.getClass().getName() + " expected to return " +
+							oe.getDataLength() + ", however returned " + code.length + " instead. (" + tmp + ")");
+				}
 				try
 				{
 					for(int c : code)
@@ -360,6 +364,7 @@ public class Assembler
 	
 	private void loadFile(File f)
 	{
+		
 		try
 		{
 			BufferedReader br = new BufferedReader(new FileReader(f));
@@ -401,8 +406,13 @@ public class Assembler
 			e.printStackTrace();
 		}
 	}
-
+	
 	public Literal parseLiteral(String in)
+	{
+		return parseLiteral(in, true, true);
+	}
+
+	public Literal parseLiteral(String in, boolean includeLabels, boolean makeNewLabels)
 	{
 		in = in.toLowerCase();
 		
@@ -426,6 +436,7 @@ public class Assembler
 		}
 		
 		// assume literal is a label
+		if(includeLabels)
 		{	
 			boolean isLocal = in.charAt(0) == '.';
 			
@@ -436,7 +447,7 @@ public class Assembler
 			if(l == null)
 			{
 				l = m_vUnknownLabels.get(in);
-				if(l == null)
+				if(l == null && makeNewLabels)
 				{
 					l = new Label(this, isLocal ? m_LastLabel : null, in);
 					m_vUnknownLabels.put(in, l);
@@ -444,6 +455,8 @@ public class Assembler
 			}
 			return l;
 		}
+		else
+			return null;
 	}
 	
 	public Argument parseArgument(String in, boolean firstArgument)
@@ -467,6 +480,7 @@ public class Assembler
 		
 		if(dereference)
 		{
+			boolean handled = false;
 			if(arg.contains("+") || arg.contains("-"))
 			{
 				String[] split = null;
@@ -474,32 +488,53 @@ public class Assembler
 				if(arg.contains("+"))
 					split = arg.split("\\+");
 				if(arg.contains("-"))
-					split = arg.split("\\-");
-				
-				literal = parseLiteral(split[1]);
-				if(negative)
 				{
-					if(literal instanceof RawLiteral)
-						literal.setValue(-literal.getValue());
-					else
-						throw new IllegalArgumentException("Cannot evaluate the subtraction of a non raw literal!");
+					negative = true;
+					split = arg.split("\\-");
 				}
+				
 				
 				int registerId = getGeneralPurposeRegisterId(split[0]);
 				if(registerId != -1)
 				{
 					// [register + literal]
 					argEnt.setCode(registerId + 0x10);
+					handled = true;
 				}
 				else
 				{
 					if(split[0].equalsIgnoreCase("sp"))
 					{
 						argEnt.setCode(0x1a);
+						handled = true;
+					}
+				}
+				
+				if(handled)
+				{
+					String eval = arg.substring(split[0].length()+1);
+					literal = parseLiteral(eval);
+					if(literal instanceof RawLiteral && literal.getValue() == 0)
+					{
+						System.out.println("Ignoring literal of value 0 in dereferenced offset argument.\n" +
+								"\tChanging '[" + arg + "]' to '[" + split[0] + "]'" );
+						arg = split[0];
+						handled = false;
+						literal = null;
+					}
+					else
+					{
+						if(negative)
+						{
+							if(literal instanceof RawLiteral)
+								literal.setValue((-literal.getValue()) & 0xFFFF);
+							else
+								throw new IllegalArgumentException("Cannot evaluate the subtraction of a non raw literal!");
+						}
 					}
 				}
 			}
-			else
+			if(!handled)
 			{
 				int registerId = getGeneralPurposeRegisterId(arg);
 				if(registerId != -1)
@@ -594,7 +629,7 @@ public class Assembler
 					}
 					
 					if(e instanceof OutputEntity)
-						pc += ((OutputEntity) e).getData().length;
+						pc += ((OutputEntity) e).getDataLength();
 					
 					lines.add(e.getLineNumber());
 				}

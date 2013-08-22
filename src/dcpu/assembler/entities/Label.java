@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import dcpu.assembler.Assembler;
+import dcpu.assembler.evaluate.Evaluator;
 
 public class Label extends CoreEntity implements Literal
 {
@@ -99,7 +100,24 @@ public class Label extends CoreEntity implements Literal
 	public int getValue()
 	{
 		if(m_bUnknown)
-			return 0xDEAD;
+		{
+			// last ditch effort to see if the label is actually an expression:
+			try
+			{
+				int value = Evaluator.evaluate(m_Assembler, getName());
+				
+				/* Don't set this - it changes the values that 'LiteralArgument's return, which breaks shit */
+				//a.setLiteral(l);
+				
+				System.out.println("Evaluated '" + getName() + "' to " + value);
+				return value;
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+				throw new IllegalStateException("Label '" + getName() + "' is unknown!");
+			}
+		}
 		return m_iPosition;
 	}
 	
@@ -127,6 +145,11 @@ public class Label extends CoreEntity implements Literal
 	public boolean isOptimized()
 	{
 		return m_bOptimized;
+	}
+	
+	public boolean isUnknown()
+	{
+		return m_bUnknown;
 	}
 	
 }

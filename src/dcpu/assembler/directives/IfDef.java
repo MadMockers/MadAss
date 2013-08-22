@@ -1,24 +1,28 @@
 package dcpu.assembler.directives;
 
-import dcpu.Tools;
 import dcpu.assembler.Assembler;
 import dcpu.assembler.Assembler.ParserState;
 import dcpu.assembler.entities.CoreEntity;
-import dcpu.assembler.entities.Data;
 import dcpu.assembler.entities.Literal;
 
-public class Reserve extends DirectiveHandler
+public class IfDef extends DirectiveHandler
 {
 
-	protected Reserve()
+	Define m_Define;
+	
+	int m_iDepth = 0;
+	
+	protected IfDef()
 	{
-		super(1, "reserve", "emt", "empty");
+		super(1, "ifdef");
+		m_Define = (Define) DirectiveHandler.getDirectiveHandler("define");
 		// TODO Auto-generated constructor stub
 	}
 
 	@Override
 	public Literal resolveUnknown(String in)
 	{
+		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -26,11 +30,12 @@ public class Reserve extends DirectiveHandler
 	public CoreEntity[] handleDirective(Assembler a, ParserState state,
 			String[] args)
 	{
-		int size = parseLiteral(a, args[0]);
-		
-		return new CoreEntity[] {
-			new Data(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, new int[size])	
-		};
+		if(!state.m_bParsing || m_Define.resolveUnknown(args[0]) == null)
+		{
+			m_iDepth++;
+			state.m_bParsing = false;
+		}
+		return null;
 	}
 
 }

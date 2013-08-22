@@ -1,14 +1,12 @@
 package dcpu.assembler.directives;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import dcpu.assembler.Assembler;
 import dcpu.assembler.Assembler.ParserState;
 import dcpu.assembler.entities.CoreEntity;
+import dcpu.assembler.entities.Label;
 import dcpu.assembler.entities.Literal;
 
 public abstract class DirectiveHandler
@@ -32,6 +30,14 @@ public abstract class DirectiveHandler
 	
 	public abstract Literal resolveUnknown(String in);
 	public abstract CoreEntity[] handleDirective(Assembler a, ParserState state, String[] args);
+	
+	protected static int parseLiteral(Assembler a, String literal)
+	{
+		Literal l = a.parseLiteral(literal, false, false);
+		if(l == null || (l instanceof Label && ((Label) l).isUnknown()))
+			throw new IllegalArgumentException("Unable to resolve literal '" + literal + "'");
+		return l.getValue();
+	}
 	
 	private static HashMap<String, DirectiveHandler> g_vHandlers = new HashMap<String, DirectiveHandler>();
 	
@@ -59,6 +65,9 @@ public abstract class DirectiveHandler
 		registerHandler(new Fill());
 		registerHandler(new Reserve());
 		registerHandler(new Dat());
+		registerHandler(new IfDef()); // must be registered after 'define'
+		registerHandler(new UnDef()); // must be registered after 'define'
+		registerHandler(new EndIf()); // must be registered after 'ifdef'
 	}
 	
 	static

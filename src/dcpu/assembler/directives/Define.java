@@ -14,14 +14,18 @@ public class Define extends DirectiveHandler
 	
 	protected Define()
 	{
-		super(2, "define", "equ");
+		super(-1, "define", "equ");
 	}
 
 	@Override
 	public CoreEntity[] handleDirective(Assembler a, ParserState state, String[] args)
 	{
+		if(args.length < 1)
+			throw new IllegalArgumentException("Directive 'define' expected at least 1 argument, but got " + args.length);
 		String name = args[0];
-		String value = args[1];
+		String value = "1";
+		if(args.length == 2)
+			value = args[1];
 		
 		m_vDefines.put(name.toLowerCase(), a.parseLiteral(value));
 		
@@ -32,6 +36,11 @@ public class Define extends DirectiveHandler
 	public Literal resolveUnknown(String in)
 	{
 		return m_vDefines.get(in.toLowerCase());
+	}
+	
+	public void undefine(String in)
+	{
+		m_vDefines.remove(in);
 	}
 
 }

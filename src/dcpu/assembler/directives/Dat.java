@@ -8,6 +8,9 @@ import dcpu.assembler.Assembler.ParserState;
 import dcpu.assembler.entities.CoreEntity;
 import dcpu.assembler.entities.Data;
 import dcpu.assembler.entities.Literal;
+import dcpu.assembler.entities.OutputEntity;
+import dcpu.assembler.entities.RawLiteral;
+import dcpu.assembler.entities.ResolvableData;
 
 public class Dat extends DirectiveHandler
 {
@@ -28,12 +31,33 @@ public class Dat extends DirectiveHandler
 	public CoreEntity[] handleDirective(Assembler a, ParserState state,
 			String[] args)
 	{
-		ArrayList<Data> data = new ArrayList<Data>();
+		ArrayList<OutputEntity> data = new ArrayList<OutputEntity>();
 		
 		for(String arg : args)
-			data.add(new Data(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, Tools.convertDat(arg)));
+		{
+
+			int[] dat = Tools.convertDat(arg);
+			if(dat.length == 0)
+			{
+				Literal l = a.parseLiteral(arg, true, true);
+				if(l == null)
+					throw new IllegalArgumentException("Unable to resolve literal '" + arg + "'");
+				if(l instanceof RawLiteral)
+				{
+					data.add(new Data(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, new int[] {l.getValue()}));
+				}
+				else
+				{
+					data.add(new ResolvableData(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, l));
+				}
+			}
+			else
+			{
+				data.add(new Data(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, dat));
+			}
+		}
 		
-		return data.toArray(new Data[data.size()]);
+		return data.toArray(new OutputEntity[data.size()]);
 	}
 
 }

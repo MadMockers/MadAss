@@ -2,6 +2,7 @@ package dcpu.assembler.entities;
 
 import java.util.ArrayList;
 
+import dcpu.Tools;
 import dcpu.assembler.Assembler;
 import dcpu.assembler.Assembler.ParserState;
 import dcpu.assembler.directives.DirectiveHandler;
@@ -15,7 +16,7 @@ public class Directive extends CoreEntity
 	
 	String m_sName;
 	
-	public Directive(Assembler a, int lineN, int pc, String line, DirectiveHandler dh, String name, String params)
+	public Directive(Assembler a, int lineN, int pc, String line, DirectiveHandler dh, String name, String[] args)
 	{
 		super(a, lineN, pc, line);
 		
@@ -23,7 +24,7 @@ public class Directive extends CoreEntity
 		
 		m_sName = name;
 		
-		ArrayList<String> args = new ArrayList<String>();
+		/*ArrayList<String> args = new ArrayList<String>();
 		
 		StringBuffer arg = new StringBuffer();
 		
@@ -61,14 +62,15 @@ public class Directive extends CoreEntity
 		if(arg.length() > 0)
 			args.add(arg.toString());
 		
-		if(dh.getArgumentCount() != -1 && args.size() != dh.getArgumentCount())
+		*/
+		
+		m_aArgs = args;
+		if(dh.getArgumentCount() != -1 && m_aArgs.length != dh.getArgumentCount())
 		{
 			throw new IllegalArgumentException(
 					"Directive '" + name + "' expected " + dh.getArgumentCount() + 
-					" arguments, but got " + args.size() + " arguments.");
+					" arguments, but got " + m_aArgs.length + " arguments.");
 		}
-		
-		m_aArgs = args.toArray(new String[0]);
 	}
 	
 	public CoreEntity[] handleDirective(ParserState state)

@@ -27,8 +27,9 @@ public class Fill extends DirectiveHandler
 	@Override
 	public CoreEntity[] handleDirective(Assembler a, ParserState state, String[] args)
 	{
-		int length = Tools.parseLiteral(args[0]);
-		int value = Tools.parseLiteral(args[1]);
+		int length = parseLiteral(a, args[0]);
+		int value = parseLiteral(a, args[1]);
+		
 		
 		int[] data = new int[length];
 		Arrays.fill(data, value);

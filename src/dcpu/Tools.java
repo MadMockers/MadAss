@@ -45,6 +45,9 @@ public class Tools
 	
 	public static String[] split(String line)
 	{
+		if(line.trim().length() == 0)
+			return new String[0];
+		
 		char[] chars = line.toCharArray();
 		
 		boolean inQuote = false;
@@ -136,6 +139,7 @@ public class Tools
 				{
 					data.add((c & 0xFF));
 				}
+				continue;
 			}
 		}
 		
@@ -145,6 +149,13 @@ public class Tools
 			out[i] = data.get(i);
 		
 		return out;
+	}
+	
+	public static void main(String[] args)
+	{
+		String a = ".define test\t\t\t1 ";
+		String[] split = split(a);
+		int b = 5;
 	}
 	
 }

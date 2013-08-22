@@ -1,19 +1,20 @@
 package dcpu.assembler.directives;
 
-import dcpu.Tools;
 import dcpu.assembler.Assembler;
 import dcpu.assembler.Assembler.ParserState;
 import dcpu.assembler.entities.CoreEntity;
-import dcpu.assembler.entities.Data;
 import dcpu.assembler.entities.Literal;
 
-public class Reserve extends DirectiveHandler
+
+public class UnDef extends DirectiveHandler
 {
 
-	protected Reserve()
+	Define m_Define;
+	
+	protected UnDef()
 	{
-		super(1, "reserve", "emt", "empty");
-		// TODO Auto-generated constructor stub
+		super(1, "undef");
+		m_Define = (Define) DirectiveHandler.getDirectiveHandler("define");
 	}
 
 	@Override
@@ -26,11 +27,11 @@ public class Reserve extends DirectiveHandler
 	public CoreEntity[] handleDirective(Assembler a, ParserState state,
 			String[] args)
 	{
-		int size = parseLiteral(a, args[0]);
-		
-		return new CoreEntity[] {
-			new Data(a, state.m_iLineNum, state.m_iProgramCounter, state.m_sRawLine, new int[size])	
-		};
+		if(state.m_bParsing)
+		{
+			m_Define.undefine(args[0]);
+		}
+		return null;
 	}
-
+	
 }

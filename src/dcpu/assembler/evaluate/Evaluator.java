@@ -11,12 +11,7 @@ import dcpu.assembler.entities.Literal;
 
 public class Evaluator
 {
-	
-	public static void main(String[] args)
-	{
-		System.out.println(evaluate(null, "37"));
-	}
-	
+
 	public static int evaluate(Assembler as, String in)
 	{
 		Evaluator e = new Evaluator(as, in);
